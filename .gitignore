@@ -8,3 +8,4 @@ waiting_cogs/
 *.sqlite3
 .pytest_cache/
 data/
+mongo-backup/

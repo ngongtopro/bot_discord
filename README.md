@@ -35,6 +35,9 @@ Bot Discord được viết bằng Python sử dụng discord.py với:
 
 ### Commands từ Cogs:
 - `/ping` - Kiểm tra ping của bot (improved với embed)
+- `/level` - Xem level hiện tại (Level System)
+- `/leaderboard` - Bảng xếp hạng level (Level System)
+- `/reset_level` - [ADMIN] Reset level user (Level System)
 
 ## 📁 Cấu trúc Project
 
@@ -48,9 +51,14 @@ bot_discord/
 ├── test_approval_cog.py   # File test approval system (🆕)
 ├── UPLOAD_COG_GUIDE.md    # Hướng dẫn upload cog (🆕)
 ├── APPROVAL_SYSTEM_GUIDE.md # Hướng dẫn approval system (🆕)
+├── MONGODB_SETUP_GUIDE.md # Hướng dẫn setup MongoDB (🆕)
+├── migrate_levels_to_mongo.py # Script chuyển data JSON→MongoDB (🆕)
 ├── cogs/                   # Thư mục chứa các cogs
 │   ├── hiworld1.py        # Cog với /hi command  
-│   └── slash.py           # Cog với /ping command (improved)
+│   ├── slash.py           # Cog với /ping command (improved)
+│   ├── level_system.py    # Level system với JSON file
+│   ├── level_system_mongo.py # Level system với MongoDB (🆕)
+│   └── steam_deals.py     # Steam deals notification (🆕)
 ├── waiting_cogs/          # Cog chờ duyệt từ non-owner (🆕)
 ├── uploads/               # File uploads tạm
 └── __pycache__/           # Python cache files
@@ -224,3 +232,23 @@ Guild command trong tree: upload_cog
 ```
 
 ✅ **Bot hoạt động thành công với guild slash commands!**
+
+## 🔐 Level System với MongoDB (🆕)
+
+### 📊 Features:
+- **XP System:** Nhận 10 XP mỗi tin nhắn
+- **Level Up:** 100 XP * current_level để lên level
+- **Tu Tiên Roles:** Auto gán role theo level (Phàm Nhân → Tiên Đế)
+- **Leaderboard:** Top 10 users theo level và XP
+- **Admin Commands:** Reset level, quản lý users
+
+### 🚀 Setup MongoDB:
+1. **Cài đặt MongoDB:** Follow `MONGODB_SETUP_GUIDE.md`
+2. **Migration:** `python migrate_levels_to_mongo.py`
+3. **Load Cog:** `level_system_mongo.py` (thay vì `level_system.py`)
+
+### 📈 Performance:
+- ✅ **Faster:** MongoDB > JSON file
+- ✅ **Scalable:** Handle thousands of users
+- ✅ **Safe:** Concurrent access protection
+- ✅ **Backup:** Automatic với Atlas
