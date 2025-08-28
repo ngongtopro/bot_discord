@@ -5,7 +5,8 @@ import os
 load_dotenv()
 
 
-TOKEN = os.getenv("TOKEN")
+TOKEN = os.getenv("TOKEN") helloworld
+
 GUILD_ID = int(os.getenv("GUILD_ID"))
 APPLICATION_ID = int(os.getenv("APPLICATION_ID"))
 
