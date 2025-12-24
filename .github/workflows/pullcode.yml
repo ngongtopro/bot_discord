@@ -1,0 +1,45 @@
+name: Notify Discord (Main Branch, Content JSON)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Send basic repo info as JSON text to Discord
+        run: |
+          repo="${GITHUB_REPOSITORY}"
+          branch="main"
+          pusher=$(jq -r .pusher.name "$GITHUB_EVENT_PATH")
+          commit_message=$(jq -r .head_commit.message "$GITHUB_EVENT_PATH")
+          commit_url=$(jq -r .head_commit.url "$GITHUB_EVENT_PATH")
+          commit_sha=$(jq -r .head_commit.id "$GITHUB_EVENT_PATH")
+          timestamp=$(jq -r .head_commit.timestamp "$GITHUB_EVENT_PATH")
+
+          payload=$(jq -n \
+            --arg repo "$repo" \
+            --arg branch "$branch" \
+            --arg pusher "$pusher" \
+            --arg message "$commit_message" \
+            --arg url "$commit_url" \
+            --arg sha "$commit_sha" \
+            --arg time "$timestamp" \
+            '{
+              type: "github_push",
+              repo: $repo,
+              branch: $branch,
+              pusher: $pusher,
+              commit_message: $message,
+              commit_url: $url,
+              commit_sha: $sha,
+              timestamp: $time
+            }')
+
+          curl -X POST \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --argjson p "$payload" '{content: ("```json\n" + ($p | tostring) + "\n```")}')" \
+          "${{ secrets.DISCORD_WEBHOOK }}"
