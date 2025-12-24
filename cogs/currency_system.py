@@ -2,122 +2,137 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import os
-from dotenv import load_dotenv
-from pymongo import MongoClient
+import json
 from datetime import datetime
+from typing import Dict, List, Optional
 
-# Load environment variables
-load_dotenv()
-
-# MongoDB Configuration
-MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://localhost:27017/')
-MONGODB_DB = os.getenv('MONGODB_DB', 'discord_bot')
-
-class CurrencyMongoDB:
-    def __init__(self):
-        self.client = MongoClient(MONGODB_URL)
-        self.db = self.client[MONGODB_DB]
-        self.currency_collection = self.db['currency']
+class CurrencyJSON:
+    def __init__(self, data_dir: str = "data"):
+        self.data_dir = data_dir
+        self.currency_file = os.path.join(data_dir, "currency.json")
+        self.transactions_file = os.path.join(data_dir, "transactions.json")
+        
+        # Tạo thư mục data nếu chưa tồn tại
+        if not os.path.exists(data_dir):
+            os.makedirs(data_dir)
+        
+        # Khởi tạo file nếu chưa tồn tại
+        if not os.path.exists(self.currency_file):
+            self._save_currency_data({})
+        
+        if not os.path.exists(self.transactions_file):
+            self._save_transactions_data([])
     
-    def get_user_balance(self, user_id: str):
+    def _load_currency_data(self) -> Dict:
+        """Load dữ liệu currency từ file JSON"""
+        try:
+            with open(self.currency_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+    
+    def _save_currency_data(self, data: Dict):
+        """Lưu dữ liệu currency vào file JSON"""
+        with open(self.currency_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    
+    def _load_transactions_data(self) -> List:
+        """Load dữ liệu transactions từ file JSON"""
+        try:
+            with open(self.transactions_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+    
+    def _save_transactions_data(self, data: List):
+        """Lưu dữ liệu transactions vào file JSON"""
+        with open(self.transactions_file, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    
+    def get_user_balance(self, user_id: str) -> int:
         """Lấy số dư của user"""
-        user_data = self.currency_collection.find_one({"user_id": user_id})
-        if not user_data:
-            return 0
+        data = self._load_currency_data()
+        user_data = data.get(user_id, {})
         return user_data.get("balance", 0)
     
     def update_user_balance(self, user_id: str, balance: int):
         """Cập nhật số dư của user"""
-        self.currency_collection.update_one(
-            {"user_id": user_id},
-            {
-                "$set": {
-                    "user_id": user_id,
-                    "balance": balance,
-                    "last_updated": datetime.utcnow()
-                }
-            },
-            upsert=True
-        )
+        data = self._load_currency_data()
+        data[user_id] = {
+            "user_id": user_id,
+            "balance": balance,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        self._save_currency_data(data)
     
     def transfer_money(self, from_user_id: str, to_user_id: str, amount: int):
-        """Chuyển tiền giữa 2 users với atomic update"""
-        # Sử dụng MongoDB transaction để đảm bảo atomic update
-        with self.client.start_session() as session:
-            try:
-                with session.start_transaction():
-                    # Kiểm tra số dư người gửi
-                    from_user_data = self.currency_collection.find_one(
-                        {"user_id": from_user_id}, 
-                        session=session
-                    )
-                    from_balance = from_user_data.get("balance", 0) if from_user_data else 0
-                    
-                    if from_balance < amount:
-                        return False, "Không đủ tiền để chuyển"
-                    
-                    # Atomic update cho cả 2 users
-                    # Trừ tiền người gửi
-                    self.currency_collection.update_one(
-                        {"user_id": from_user_id},
-                        {
-                            "$set": {
-                                "user_id": from_user_id,
-                                "balance": from_balance - amount,
-                                "last_updated": datetime.utcnow()
-                            }
-                        },
-                        upsert=True,
-                        session=session
-                    )
-                    
-                    # Cộng tiền người nhận
-                    self.currency_collection.update_one(
-                        {"user_id": to_user_id},
-                        {
-                            "$inc": {"balance": amount},
-                            "$set": {
-                                "user_id": to_user_id,
-                                "last_updated": datetime.utcnow()
-                            }
-                        },
-                        upsert=True,
-                        session=session
-                    )
-                    
-                    # Log transaction
-                    transaction_data = {
-                        "from_user_id": from_user_id,
-                        "to_user_id": to_user_id,
-                        "amount": amount,
-                        "type": "transfer",
-                        "timestamp": datetime.utcnow()
-                    }
-                    self.db['transactions'].insert_one(transaction_data, session=session)
-                    
-                    return True, "Chuyển tiền thành công"
-                    
-            except Exception as e:
-                return False, f"Lỗi giao dịch: {str(e)}"
+        """Chuyển tiền giữa 2 users"""
+        data = self._load_currency_data()
+        
+        # Kiểm tra số dư người gửi
+        from_user_data = data.get(from_user_id, {})
+        from_balance = from_user_data.get("balance", 0)
+        
+        if from_balance < amount:
+            return False, "Không đủ tiền để chuyển"
+        
+        # Trừ tiền người gửi
+        data[from_user_id] = {
+            "user_id": from_user_id,
+            "balance": from_balance - amount,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+        # Cộng tiền người nhận
+        to_user_data = data.get(to_user_id, {})
+        to_balance = to_user_data.get("balance", 0)
+        data[to_user_id] = {
+            "user_id": to_user_id,
+            "balance": to_balance + amount,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+        # Lưu dữ liệu
+        self._save_currency_data(data)
+        
+        # Log transaction
+        self.log_transaction(from_user_id, to_user_id, amount, "transfer")
+        
+        return True, "Chuyển tiền thành công"
     
     def log_transaction(self, from_user_id: str, to_user_id: str, amount: int, transaction_type: str):
         """Log giao dịch"""
+        transactions = self._load_transactions_data()
         transaction_data = {
             "from_user_id": from_user_id,
             "to_user_id": to_user_id,
             "amount": amount,
             "type": transaction_type,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.utcnow().isoformat()
         }
-        self.db['transactions'].insert_one(transaction_data)
+        transactions.append(transaction_data)
+        self._save_transactions_data(transactions)
     
-    def get_richest_users(self, limit: int = 10):
+    def get_richest_users(self, limit: int = 10) -> List[Dict]:
         """Lấy top users giàu nhất"""
-        return list(self.currency_collection.find().sort([("balance", -1)]).limit(limit))
+        data = self._load_currency_data()
+        users_list = [
+            {"user_id": user_id, "balance": user_data["balance"]}
+            for user_id, user_data in data.items()
+        ]
+        users_list.sort(key=lambda x: x["balance"], reverse=True)
+        return users_list[:limit]
     
-    def get_all_users_with_money(self):
+    def get_all_users_with_money(self) -> List[Dict]:
         """Lấy tất cả users có tiền (để hiển thị bảng xếp hạng)"""
-        return list(self.currency_collection.find({"balance": {"$gt": 0}}).sort([("balance", -1)]))
+        data = self._load_currency_data()
+        users_list = [
+            {"user_id": user_id, "balance": user_data["balance"]}
+            for user_id, user_data in data.items()
+            if user_data.get("balance", 0) > 0
+        ]
+        users_list.sort(key=lambda x: x["balance"], reverse=True)
+        return users_list
     
     def create_leaderboard_embed(self, guild):
         """Tạo embed cho bảng xếp hạng"""
@@ -171,34 +186,57 @@ class CurrencyMongoDB:
     
     def initialize_all_members(self, guild, initial_amount: int = 10000):
         """Khởi tạo tiền cho tất cả members hiện tại"""
+        data = self._load_currency_data()
         initialized_count = 0
+        
         for member in guild.members:
             if not member.bot:  # Không tính bot
-                current_balance = self.get_user_balance(str(member.id))
-                if current_balance == 0:  # Chỉ init nếu chưa có tiền
-                    self.update_user_balance(str(member.id), initial_amount)
+                user_id = str(member.id)
+                if user_id not in data or data[user_id].get("balance", 0) == 0:
+                    data[user_id] = {
+                        "user_id": user_id,
+                        "balance": initial_amount,
+                        "last_updated": datetime.utcnow().isoformat()
+                    }
                     initialized_count += 1
+        
+        self._save_currency_data(data)
         return initialized_count
     
     def add_money_to_all_members(self, guild, amount: int):
         """Thêm tiền cho tất cả members (kể cả đã có tiền)"""
+        data = self._load_currency_data()
         updated_count = 0
+        
         for member in guild.members:
             if not member.bot:  # Không tính bot
-                current_balance = self.get_user_balance(str(member.id))
-                new_balance = current_balance + amount
-                self.update_user_balance(str(member.id), new_balance)
+                user_id = str(member.id)
+                current_balance = data.get(user_id, {}).get("balance", 0)
+                data[user_id] = {
+                    "user_id": user_id,
+                    "balance": current_balance + amount,
+                    "last_updated": datetime.utcnow().isoformat()
+                }
                 updated_count += 1
+        
+        self._save_currency_data(data)
         return updated_count
     
-    def close(self):
-        """Đóng kết nối MongoDB"""
-        self.client.close()
+    def get_user_transactions(self, user_id: str, limit: int = 5) -> List[Dict]:
+        """Lấy lịch sử giao dịch của user"""
+        transactions = self._load_transactions_data()
+        user_transactions = [
+            tx for tx in transactions
+            if tx.get("from_user_id") == user_id or tx.get("to_user_id") == user_id
+        ]
+        # Sắp xếp theo thời gian mới nhất
+        user_transactions.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return user_transactions[:limit]
 
 class CurrencySystem(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.db = CurrencyMongoDB()
+        self.db = CurrencyJSON()
         self.initial_amount = 10000  # Số tiền khởi tạo
         self.leaderboard_channel_id = 1410120603167494214  # Channel ID để cập nhật bảng xếp hạng
         
@@ -221,9 +259,7 @@ class CurrencySystem(commands.Cog):
         user_roles = [role.name for role in member.roles]
         return any(role in self.vip_roles for role in user_roles)
 
-    def cog_unload(self):
-        """Đóng kết nối MongoDB khi unload cog"""
-        self.db.close()
+    # Không cần cog_unload nữa vì JSON không cần đóng kết nối
 
     async def update_leaderboard_channel(self, guild):
         """Cập nhật bảng xếp hạng trong channel chỉ định"""
@@ -544,12 +580,7 @@ class CurrencySystem(commands.Cog):
         balance = self.db.get_user_balance(user_id)
         
         # Lấy thêm thông tin giao dịch
-        transactions = list(self.db.db['transactions'].find({
-            "$or": [
-                {"from_user_id": user_id},
-                {"to_user_id": user_id}
-            ]
-        }).sort([("timestamp", -1)]).limit(5))
+        transactions = self.db.get_user_transactions(user_id, limit=5)
         
         embed = discord.Embed(
             title=f"💎 Số dư VIP của {target_user.display_name}",

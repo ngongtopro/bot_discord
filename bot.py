@@ -1,14 +1,9 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
 import os
 import asyncio
-import json
-from datetime import datetime
 from dotenv import load_dotenv
 import logging
-from pymongo import MongoClient
-import time
 
 
 # Load environment variables
@@ -34,66 +29,11 @@ class DiscordBot(commands.Bot):
         
         self.guild_id = int(os.getenv('GUILD_ID'))
         
-        # MongoDB connection
-        mongo_uri = os.getenv('MONGODB_URI')
-        if mongo_uri:
-            self.mongo_client = MongoClient(mongo_uri)
-            self.mongodb = self.mongo_client.get_database('DiscordBot')
-            logging.info('Connected to MongoDB!')
-        else:
-            self.mongo_client = None
-            self.mongodb = None
-            logging.warning('No MongoDB URI found in environment!')
-        
         self._commands_added = False
-
-    async def check_mongodb_connection(self):
-        """Kiểm tra kết nối MongoDB trước khi load cogs"""
-        try:
-            from pymongo import MongoClient
-            import os
-            from dotenv import load_dotenv
-            
-            # Load environment variables
-            load_dotenv()
-            
-            # MongoDB Configuration
-            MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb://localhost:27017/')
-            
-            print("🔍 Đang kiểm tra kết nối MongoDB...")
-            
-            # Test connection với timeout ngắn
-            client = MongoClient(MONGODB_URL, serverSelectionTimeoutMS=5000)
-            
-            # Thử ping MongoDB server
-            client.admin.command('ping')
-            client.close()
-            
-            print("✅ MongoDB kết nối thành công!")
-            return True
-            
-        except Exception as e:
-            error_msg = str(e)
-            print("❌ Lỗi kết nối MongoDB:")
-            
-            if 'ServerSelectionTimeoutError' in error_msg or 'Could not reach any servers' in error_msg:
-                print("   📋 Hướng dẫn khắc phục:")
-                print("   1. Kiểm tra Docker MongoDB container:")
-                print("      docker ps -a")
-                print("   2. Khởi động MongoDB nếu chưa chạy:")
-                print("      docker compose -f docker_compose.yml up -d")
-                print("   3. Khởi tạo Replica Set:")
-                print("      docker exec -it mongodb mongosh --eval \"rs.initiate()\"")
-                print("   4. Kiểm tra connection string trong .env:")
-                print("      MONGODB_URL=mongodb://localhost:27017/?replicaSet=rs0")
-                print("   5. Đợi 30-60 giây để MongoDB replica set hoàn tất khởi tạo")
-            else:
-                print(f"   Chi tiết lỗi: {error_msg}")
-            
-            return False
         
     def userdata(self):
         return self.userdata_database
+    
     def get_userdata(self,user_id, variable):
         try:
             cursor = self.userdata().cursor()
@@ -119,18 +59,8 @@ class DiscordBot(commands.Bot):
     async def setup_hook(self):
         """Called when the bot is starting up"""
         print(f'{self.user} đã đăng nhập!')
-        
-        # Kiểm tra MongoDB connection trước khi load cogs
-        mongodb_ok = await self.check_mongodb_connection()
-        if not mongodb_ok:
-            print("⚠️  MongoDB không khả dụng - một số cogs có thể không load được!")
-            print("   Bot vẫn sẽ khởi động với các chức năng cơ bản...")
-        
-        # Load cogs
         await self.load_cogs()
         
-
-    
     async def load_cogs(self):
         """Load all cogs from cogs folder"""
         for filename in os.listdir('./cogs'):
@@ -139,18 +69,8 @@ class DiscordBot(commands.Bot):
                     await self.load_extension(f'cogs.{filename[:-3]}')
                     print(f'✅ Đã load cog: {filename}')
                 except Exception as e:
-                    # Check for MongoDB connection errors
-                    error_msg = str(e)
-                    if 'ServerSelectionTimeoutError' in error_msg or 'Could not reach any servers' in error_msg:
-                        print(f'❌ Lỗi kết nối MongoDB khi load cog {filename}:')
-                        print(f'   MongoDB server không thể kết nối!')
-                        print(f'   Hãy kiểm tra:')
-                        print(f'   - Docker MongoDB container đã chạy chưa: docker ps')
-                        print(f'   - Replica set đã được khởi tạo chưa: docker exec -it mongodb mongosh --eval "rs.initiate()"')
-                        print(f'   - Connection string đúng chưa: mongodb://localhost:27017/?replicaSet=rs0')
-                    else:
-                        print(f'❌ Lỗi load cog {filename}: {e}')
-    
+                    print(f'❌ Lỗi load cog {filename}: {e}')
+
     async def on_ready(self):
         """Called when bot is ready"""
         print(f'Bot {self.user} đã sẵn sàng!')
@@ -201,8 +121,6 @@ class DiscordBot(commands.Bot):
                 print(f"Lỗi khi sync guild commands: {e}")
     
     # Built-in slash command callbacks
-
-    
     async def _botinfo_callback(self, interaction: discord.Interaction):
         """Bot information slash command"""
         embed = discord.Embed(
@@ -218,10 +136,6 @@ class DiscordBot(commands.Bot):
         
         await interaction.response.send_message(embed=embed)
     
-
-    
-
-
 
 async def main():
     """Main function to run the bot"""
@@ -249,24 +163,7 @@ async def main():
     except KeyboardInterrupt:
         print("\n🛑 Bot đã được dừng bởi người dùng")
     except Exception as e:
-        error_msg = str(e)
-        
-        # Check for MongoDB related errors
-        if ('ServerSelectionTimeoutError' in error_msg or 
-            'Could not reach any servers' in error_msg or
-            'CommandInvokeError' in error_msg):
-            print(f"❌ Lỗi MongoDB khi chạy bot:")
-            print(f"   {error_msg}")
-            print(f"   📋 Hướng dẫn khắc phục:")
-            print(f"   1. Đảm bảo MongoDB container đang chạy:")
-            print(f"      docker ps | grep mongodb")
-            print(f"   2. Khởi động lại MongoDB:")
-            print(f"      docker compose -f docker_compose.yml down && docker compose -f docker_compose.yml up -d")
-            print(f"   3. Khởi tạo replica set:")
-            print(f"      docker exec -it mongodb mongosh --eval \"rs.initiate()\"")
-            print(f"   4. Đợi 30-60 giây rồi khởi động bot lại")
-        else:
-            print(f"❌ Lỗi khi chạy bot: {e}")
+        print(f"❌ Lỗi khi chạy bot: {e}")
     finally:
         await bot.close()
 

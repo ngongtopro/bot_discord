@@ -82,39 +82,63 @@ class SteamDealsCog(commands.Cog):
         
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url) as resp:
+                async with session.get(url, ssl=False) as resp:  # Tắt SSL verification nếu gặp lỗi certificate
                     print(f"📡 [Steam Deals] HTTP Status: {resp.status}")
                     
                     if resp.status == 200:
-                        data = await resp.json()
-                        print(f"📋 [Steam Deals] Nhận được dữ liệu từ Steam API")
-                        
-                        specials = data.get('specials', {}).get('items', [])
-                        print(f"🎯 [Steam Deals] Số lượng specials từ API: {len(specials)}")
-                        
-                        for i, item in enumerate(specials):
-                            discount = item.get('discount_percent', 0)
-                            if discount > 0:
-                                deal = {
-                                    'id': item['id'],
-                                    'name': item['name'],
-                                    'url': f"https://store.steampowered.com/app/{item['id']}/",
-                                    'price': item.get('final_price', 0) / 100,
-                                    'old_price': item.get('original_price', 0) / 100,
-                                    'discount': discount,
-                                    'image': item.get('small_capsule_image', '')
-                                }
-                                deals.append(deal)
+                        try:
+                            data = await resp.json()
+                            print(f"📋 [Steam Deals] Nhận được dữ liệu từ Steam API")
+                            
+                            # Kiểm tra xem data có đúng cấu trúc không
+                            if not isinstance(data, dict):
+                                print(f"⚠️  [Steam Deals] Dữ liệu không đúng định dạng (không phải dict)")
+                                return deals
+                            
+                            specials = data.get('specials', {})
+                            if not isinstance(specials, dict):
+                                print(f"⚠️  [Steam Deals] 'specials' không đúng định dạng")
+                                return deals
                                 
-                                if i < 3:  # Log first 3 deals for debugging
-                                    print(f"   Deal {i+1}: {deal['name']} (-{discount}%)")
+                            items = specials.get('items', [])
+                            print(f"🎯 [Steam Deals] Số lượng specials từ API: {len(items)}")
+                            
+                            for i, item in enumerate(items):
+                                try:
+                                    discount = item.get('discount_percent', 0)
+                                    if discount > 0:
+                                        deal = {
+                                            'id': item['id'],
+                                            'name': item['name'],
+                                            'url': f"https://store.steampowered.com/app/{item['id']}/",
+                                            'price': item.get('final_price', 0) / 100,
+                                            'old_price': item.get('original_price', 0) / 100,
+                                            'discount': discount,
+                                            'image': item.get('small_capsule_image', '')
+                                        }
+                                        deals.append(deal)
+                                        
+                                        if i < 3:  # Log first 3 deals for debugging
+                                            print(f"   Deal {i+1}: {deal['name']} (-{discount}%)")
+                                except (KeyError, TypeError) as e:
+                                    print(f"⚠️  [Steam Deals] Bỏ qua item không hợp lệ (index {i}): {e}")
+                                    continue
+                                    
+                        except aiohttp.ContentTypeError as e:
+                            print(f"⚠️  [Steam Deals] Lỗi parse JSON từ Steam API: Response không phải JSON")
+                        except Exception as e:
+                            print(f"⚠️  [Steam Deals] Lỗi xử lý dữ liệu từ Steam API: {e}")
                     else:
                         print(f"❌ [Steam Deals] HTTP Error: {resp.status}")
                         
+        except aiohttp.ClientConnectorCertificateError as e:
+            print(f"⚠️  [Steam Deals] Lỗi SSL Certificate - Không thể kết nối đến Steam (certificate verification failed)")
+        except aiohttp.ClientConnectorError as e:
+            print(f"⚠️  [Steam Deals] Lỗi kết nối đến Steam API - Kiểm tra internet hoặc Steam có thể đang down")
+        except aiohttp.ClientError as e:
+            print(f"⚠️  [Steam Deals] Lỗi client khi gọi Steam API: {type(e).__name__}")
         except Exception as e:
-            print(f"❌ [Steam Deals] Lỗi khi fetch Steam API: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ [Steam Deals] Lỗi không xác định khi fetch Steam API: {type(e).__name__} - {e}")
             
         print(f"✅ [Steam Deals] Tổng cộng {len(deals)} deals có discount")
         return deals
