@@ -5,11 +5,12 @@ import os
 from dotenv import load_dotenv
 import datetime
 
-# Load environment variables
+# Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
 
-STEAM_DEALS_CHANNEL_ID = int(os.getenv('STEAM_DEALS_CHANNEL_ID', '0'))  # Thêm vào .env nếu cần
-CHECK_INTERVAL_MINUTES = int(os.getenv('STEAM_DEALS_INTERVAL', '30'))  # Mặc định 30 phút
+# Ưu tiên lấy từ system environment variables
+STEAM_DEALS_CHANNEL_ID = int(os.environ.get('STEAM_DEALS_CHANNEL_ID') or os.getenv('STEAM_DEALS_CHANNEL_ID', '0'))
+CHECK_INTERVAL_MINUTES = int(os.environ.get('STEAM_DEALS_INTERVAL') or os.getenv('STEAM_DEALS_INTERVAL', '30'))
 
 class SteamDealsCog(commands.Cog):
     def __init__(self, bot):

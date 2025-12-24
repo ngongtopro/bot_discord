@@ -8,8 +8,11 @@ from datetime import datetime
 from dotenv import load_dotenv
 from utils.clone_or_pull import clone_or_pull_repo
 
-# Load environment variables
+# Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
+
+# Ưu tiên lấy từ system environment variables
+GUILD_ID = int(os.environ.get('GUILD_ID') or os.getenv('GUILD_ID'))
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1453237521583706195/gPrq4zU3OLe61qVVGNka2-ck2aI48aLo0X15PSJgDWInh8NYNBDddrUFJAkgXyuy4rpr"
 REPOS_FILE = "data/github_repos.json"
@@ -125,7 +128,7 @@ class GitHubManager(commands.Cog):
             return False
 
     @app_commands.command(name="addrepo", description="Thêm link GitHub repository public")
-    @app_commands.guilds(int(os.getenv('GUILD_ID')))
+    @app_commands.guilds(GUILD_ID)
     @app_commands.describe(github_url="URL của GitHub repository (ví dụ: https://github.com/owner/repo)")
     async def add_repo(self, interaction: discord.Interaction, github_url: str):
         """Command thêm GitHub repository"""
@@ -191,7 +194,7 @@ class GitHubManager(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="listrepos", description="Hiển thị danh sách các GitHub repositories đã thêm")
-    @app_commands.guilds(int(os.getenv('GUILD_ID')))
+    @app_commands.guilds(GUILD_ID)
     async def list_repos(self, interaction: discord.Interaction):
         """Command hiển thị danh sách repos"""
         repos = self.load_repos()
@@ -223,7 +226,7 @@ class GitHubManager(commands.Cog):
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="updatewebhook", description="Cập nhật danh sách repos lên webhook")
-    @app_commands.guilds(int(os.getenv('GUILD_ID')))
+    @app_commands.guilds(GUILD_ID)
     async def update_webhook(self, interaction: discord.Interaction):
         """Command cập nhật webhook"""
         await interaction.response.defer()
@@ -243,7 +246,7 @@ class GitHubManager(commands.Cog):
             await interaction.followup.send("❌ Không thể cập nhật lên webhook!", ephemeral=True)
 
     @app_commands.command(name="removerepo", description="Xóa một repository khỏi danh sách")
-    @app_commands.guilds(int(os.getenv('GUILD_ID')))
+    @app_commands.guilds(GUILD_ID)
     @app_commands.describe(repo_identifier="Tên repo (name), owner/repo (full_name), hoặc URL GitHub")
     async def remove_repo(self, interaction: discord.Interaction, repo_identifier: str):
         """Command xóa repository"""

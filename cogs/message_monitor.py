@@ -7,11 +7,12 @@ import asyncio
 import platform
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
 
-MONITOR_CHANNEL_ID = int(os.getenv('MONITOR_CHANNEL_ID', 0))
-AUTO_DEPLOY_ENABLED = os.getenv('AUTO_DEPLOY_ENABLED', 'false').lower() == 'true'
+# Ưu tiên lấy từ system environment variables (từ systemd) trước
+MONITOR_CHANNEL_ID = int(os.environ.get('MONITOR_CHANNEL_ID') or os.getenv('MONITOR_CHANNEL_ID', 0))
+AUTO_DEPLOY_ENABLED = (os.environ.get('AUTO_DEPLOY_ENABLED') or os.getenv('AUTO_DEPLOY_ENABLED', 'false')).lower() == 'true'
 
 
 class MessageMonitor(commands.Cog):

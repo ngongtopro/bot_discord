@@ -4,8 +4,11 @@ from discord.ext import commands
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
+
+# Ưu tiên lấy từ system environment variables
+GUILD_ID = int(os.environ.get('GUILD_ID') or os.getenv('GUILD_ID'))
 
 
 class Testing(commands.Cog):
@@ -14,7 +17,7 @@ class Testing(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="ping", description="Slash command: kiểm tra ping")
-    @app_commands.guilds(int(os.getenv('GUILD_ID')))  # Restrict to specific guild
+    @app_commands.guilds(GUILD_ID)  # Restrict to specific guild
     async def ping(self, interaction: discord.Interaction):
         latency = round(self.bot.latency * 1000)
         embed = discord.Embed(

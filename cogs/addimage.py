@@ -5,8 +5,12 @@ import os
 import json
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
+
+# Ưu tiên lấy từ system environment variables
+GUILD_ID = int(os.environ.get('GUILD_ID') or os.getenv('GUILD_ID'))
+OWNER_ID = int(os.environ.get('OWNER_ID') or os.getenv('OWNER_ID'))
 
 class AddImage(commands.Cog):
     
@@ -14,10 +18,10 @@ class AddImage(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="add_all_images", description="Add all images from image folder as emojis and create JSON output")
-    @app_commands.guilds(int(os.getenv('GUILD_ID')))  # Restrict to specific guild
+    @app_commands.guilds(GUILD_ID)  # Restrict to specific guild
     async def add_all_images(self, interaction: discord.Interaction):
         # Check if user is owner or admin
-        if interaction.user.id != int(os.getenv('OWNER_ID')):
+        if interaction.user.id != OWNER_ID:
             await interaction.response.send_message("❌ Chỉ owner mới được dùng lệnh này!", ephemeral=True)
             return
         

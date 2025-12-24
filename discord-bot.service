@@ -1,0 +1,33 @@
+# Tạo file systemd: sudo nano /etc/systemd/system/discord-bot.service
+[Unit]
+Description=Discord Bot - Automated Deployment
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/bot_discord
+
+# Environment Variables
+Environment="TOKEN=YOUR_DISCORD_BOT_TOKEN_HERE"
+Environment="APPLICATION_ID=YOUR_APPLICATION_ID_HERE"
+Environment="GUILD_ID=YOUR_GUILD_ID_HERE"
+Environment="OWNER_ID=YOUR_OWNER_ID_HERE"
+Environment="MONITOR_CHANNEL_ID=1414437812614336612"
+Environment="AUTO_DEPLOY_ENABLED=true"
+Environment="STEAM_DEALS_CHANNEL_ID=0"
+Environment="STEAM_DEALS_INTERVAL=30"
+
+# Python executable và bot file
+ExecStart=/usr/bin/python3 /home/ubuntu/bot_discord/bot.py
+
+# Auto restart nếu bot crash
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/home/ubuntu/bot_discord/bot.log
+StandardError=append:/home/ubuntu/bot_discord/bot_error.log
+
+[Install]
+WantedBy=multi-user.target

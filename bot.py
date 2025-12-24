@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import logging
 
 
-# Load environment variables
+# Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
 
 # Setup logging
@@ -20,14 +20,18 @@ class DiscordBot(commands.Bot):
         intents.guilds = True
         intents.members = True
         
+        # Ưu tiên lấy từ system environment (systemd) trước
+        application_id = int(os.environ.get('APPLICATION_ID') or os.getenv('APPLICATION_ID'))
+        guild_id = int(os.environ.get('GUILD_ID') or os.getenv('GUILD_ID'))
+        
         # Initialize bot
         super().__init__(
             command_prefix='!',
             intents=intents,
-            application_id=int(os.getenv('APPLICATION_ID'))
+            application_id=application_id
         )
         
-        self.guild_id = int(os.getenv('GUILD_ID'))
+        self.guild_id = guild_id
         
         self._commands_added = False
         
@@ -139,20 +143,20 @@ class DiscordBot(commands.Bot):
 
 async def main():
     """Main function to run the bot"""
-    # Check environment variables
-    token = os.getenv('TOKEN')
+    # Ưu tiên lấy từ system environment variables (systemd) trước
+    token = os.environ.get('TOKEN') or os.getenv('TOKEN')
     if not token:
-        print("❌ Không tìm thấy TOKEN trong file .env!")
+        print("❌ Không tìm thấy TOKEN trong environment variables!")
         return
     
-    application_id = os.getenv('APPLICATION_ID')
+    application_id = os.environ.get('APPLICATION_ID') or os.getenv('APPLICATION_ID')
     if not application_id:
-        print("❌ Không tìm thấy APPLICATION_ID trong file .env!")
+        print("❌ Không tìm thấy APPLICATION_ID trong environment variables!")
         return
         
-    guild_id = os.getenv('GUILD_ID')
+    guild_id = os.environ.get('GUILD_ID') or os.getenv('GUILD_ID')
     if not guild_id:
-        print("❌ Không tìm thấy GUILD_ID trong file .env!")
+        print("❌ Không tìm thấy GUILD_ID trong environment variables!")
         return
     
     # Create and run bot
