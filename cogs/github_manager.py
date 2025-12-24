@@ -6,12 +6,14 @@ import json
 import aiohttp
 from datetime import datetime
 from dotenv import load_dotenv
+from utils.clone_or_pull import clone_or_pull_repo
 
 # Load environment variables
 load_dotenv()
 
 WEBHOOK_URL = "https://discord.com/api/webhooks/1453237521583706195/gPrq4zU3OLe61qVVGNka2-ck2aI48aLo0X15PSJgDWInh8NYNBDddrUFJAkgXyuy4rpr"
 REPOS_FILE = "data/github_repos.json"
+PROJECTS_DIR = "projects"
 
 
 class GitHubManager(commands.Cog):
@@ -19,6 +21,11 @@ class GitHubManager(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.ensure_data_file()
+        self.ensure_projects_dir()
+
+    def ensure_projects_dir(self):
+        """Đảm bảo thư mục projects tồn tại"""
+        os.makedirs(PROJECTS_DIR, exist_ok=True)
 
     def ensure_data_file(self):
         """Đảm bảo file JSON tồn tại"""
@@ -150,6 +157,9 @@ class GitHubManager(commands.Cog):
         repos.append(repo_info)
         self.save_repos(repos)
         
+        # Clone hoặc pull repository
+        clone_result = await clone_or_pull_repo(repo_info, PROJECTS_DIR)
+        
         # Gửi lên webhook
         webhook_sent = await self.send_to_webhook(repos)
         
@@ -165,6 +175,13 @@ class GitHubManager(commands.Cog):
         embed.add_field(name="🍴 Forks", value=str(repo_info['forks']), inline=True)
         embed.add_field(name="💻 Ngôn ngữ", value=repo_info['language'], inline=True)
         embed.add_field(name="🔗 Link", value=f"[Xem trên GitHub]({repo_info['html_url']})", inline=False)
+        
+        # Thêm thông tin về clone/pull
+        if clone_result['success']:
+            action_text = "📥 Clone" if clone_result['action'] == 'cloned' else "🔄 Pull"
+            embed.add_field(name=f"{action_text} Status", value=clone_result['message'], inline=False)
+        else:
+            embed.add_field(name="⚠️ Git Status", value=clone_result['message'], inline=False)
         
         if webhook_sent:
             embed.set_footer(text="✅ Đã cập nhật lên webhook")
