@@ -30,7 +30,7 @@ class SteamDealsCog(commands.Cog):
                     if last_check_str:
                         return datetime.fromisoformat(last_check_str)
         except Exception as e:
-            print(f"⚠️  [Steam Deals] Lỗi đọc last check time: {e}")
+            print(f"[Steam Deals] Lỗi đọc last check time: {e}")
         return None
     
     def save_last_check_time(self):
@@ -42,22 +42,22 @@ class SteamDealsCog(commands.Cog):
                     'last_check': datetime.now().isoformat()
                 }, f)
         except Exception as e:
-            print(f"⚠️  [Steam Deals] Lỗi lưu last check time: {e}")
+            print(f"[Steam Deals] Lỗi lưu last check time: {e}")
 
     def cog_unload(self):
         self.check_steam_deals.cancel()
 
     @tasks.loop(minutes=CHECK_INTERVAL_MINUTES)
     async def check_steam_deals(self):
-        print(f"🔍 [Steam Deals] Bắt đầu kiểm tra deals...")
+        print(f"[Steam Deals] Bắt đầu kiểm tra deals...")
         
         channel = await self.bot.fetch_channel(STEAM_DEALS_CHANNEL_ID)
         if not channel:
-            print(f"❌ [Steam Deals] Không tìm thấy channel ID: {STEAM_DEALS_CHANNEL_ID}")
+            print(f"[Steam Deals] Không tìm thấy channel ID: {STEAM_DEALS_CHANNEL_ID}")
             print(f"   Hãy kiểm tra STEAM_DEALS_CHANNEL_ID trong file .env")
             return
         
-        print(f"✅ [Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
+        print(f"[Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
         
         # Kiểm tra thời gian check cuối cùng
         last_check = self.load_last_check_time()
@@ -67,17 +67,17 @@ class SteamDealsCog(commands.Cog):
             time_since_last_check = now - last_check
             minutes_since_last_check = time_since_last_check.total_seconds() / 60
             
-            print(f"⏰ [Steam Deals] Lần check cuối: {last_check.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"⏰ [Steam Deals] Đã qua: {minutes_since_last_check:.1f} phút")
+            print(f"[Steam Deals] Lần check cuối: {last_check.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"[Steam Deals] Đã qua: {minutes_since_last_check:.1f} phút")
             
             # Nếu chưa đủ thời gian interval, bỏ qua và gửi thông báo restart
             if minutes_since_last_check < CHECK_INTERVAL_MINUTES:
                 remaining_minutes = CHECK_INTERVAL_MINUTES - minutes_since_last_check
-                print(f"⏭️  [Steam Deals] Bỏ qua check (còn {remaining_minutes:.1f} phút nữa)")
+                print(f"⏭[Steam Deals] Bỏ qua check (còn {remaining_minutes:.1f} phút nữa)")
                 
                 # Gửi thông báo bot restart
                 embed = discord.Embed(
-                    title="🔄 Bot đã được restart",
+                    title="Bot đã được restart",
                     description=f"Steam Deals checker đang hoạt động.\nLần check tiếp theo: sau **{remaining_minutes:.0f} phút**",
                     color=discord.Color.blue(),
                     timestamp=datetime.now()
@@ -86,21 +86,20 @@ class SteamDealsCog(commands.Cog):
                 
                 try:
                     await channel.send(embed=embed)
-                    print(f"📢 [Steam Deals] Đã gửi thông báo restart")
+                    print(f"[Steam Deals] Đã gửi thông báo restart")
                 except Exception as e:
-                    print(f"⚠️  [Steam Deals] Không thể gửi thông báo restart: {e}")
-                
+                    print(f"[Steam Deals] Không thể gửi thông báo restart: {e}")
                 return
         else:
-            print(f"ℹ️  [Steam Deals] Chưa có lần check nào trước đó")
-        
+            print(f"[Steam Deals] Chưa có lần check nào trước đó")
+
         # Thực hiện fetch deals
         try:
             deals = await self.fetch_steam_deals()
-            print(f"📊 [Steam Deals] Tìm thấy {len(deals)} deals")
-            
+            print(f"[Steam Deals] Tìm thấy {len(deals)} deals")
+
             if not deals:
-                print("⚠️  [Steam Deals] Không có deals nào được tìm thấy")
+                print(f"[Steam Deals] Không có deals nào được tìm thấy")
                 return
             
             new_deals = 0
