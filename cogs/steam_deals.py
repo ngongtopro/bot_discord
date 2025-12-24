@@ -2,8 +2,9 @@ import discord
 from discord.ext import commands, tasks
 import aiohttp
 import os
+import json
 from dotenv import load_dotenv
-import datetime
+from datetime import datetime, timedelta
 
 # Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
@@ -11,12 +12,37 @@ load_dotenv()
 # Ưu tiên lấy từ system environment variables
 STEAM_DEALS_CHANNEL_ID = int(os.environ.get('STEAM_DEALS_CHANNEL_ID') or os.getenv('STEAM_DEALS_CHANNEL_ID', '0'))
 CHECK_INTERVAL_MINUTES = int(os.environ.get('STEAM_DEALS_INTERVAL') or os.getenv('STEAM_DEALS_INTERVAL', '30'))
+LAST_CHECK_FILE = "data/steam_last_check.json"
 
 class SteamDealsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.last_announced = set()
         self.check_steam_deals.start()
+    
+    def load_last_check_time(self):
+        """Đọc thời gian check cuối cùng từ file"""
+        try:
+            if os.path.exists(LAST_CHECK_FILE):
+                with open(LAST_CHECK_FILE, 'r') as f:
+                    data = json.load(f)
+                    last_check_str = data.get('last_check')
+                    if last_check_str:
+                        return datetime.fromisoformat(last_check_str)
+        except Exception as e:
+            print(f"⚠️  [Steam Deals] Lỗi đọc last check time: {e}")
+        return None
+    
+    def save_last_check_time(self):
+        """Lưu thời gian check hiện tại vào file"""
+        try:
+            os.makedirs("data", exist_ok=True)
+            with open(LAST_CHECK_FILE, 'w') as f:
+                json.dump({
+                    'last_check': datetime.now().isoformat()
+                }, f)
+        except Exception as e:
+            print(f"⚠️  [Steam Deals] Lỗi lưu last check time: {e}")
 
     def cog_unload(self):
         self.check_steam_deals.cancel()
@@ -33,6 +59,42 @@ class SteamDealsCog(commands.Cog):
         
         print(f"✅ [Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
         
+        # Kiểm tra thời gian check cuối cùng
+        last_check = self.load_last_check_time()
+        now = datetime.now()
+        
+        if last_check:
+            time_since_last_check = now - last_check
+            minutes_since_last_check = time_since_last_check.total_seconds() / 60
+            
+            print(f"⏰ [Steam Deals] Lần check cuối: {last_check.strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"⏰ [Steam Deals] Đã qua: {minutes_since_last_check:.1f} phút")
+            
+            # Nếu chưa đủ thời gian interval, bỏ qua và gửi thông báo restart
+            if minutes_since_last_check < CHECK_INTERVAL_MINUTES:
+                remaining_minutes = CHECK_INTERVAL_MINUTES - minutes_since_last_check
+                print(f"⏭️  [Steam Deals] Bỏ qua check (còn {remaining_minutes:.1f} phút nữa)")
+                
+                # Gửi thông báo bot restart
+                embed = discord.Embed(
+                    title="🔄 Bot đã được restart",
+                    description=f"Steam Deals checker đang hoạt động.\nLần check tiếp theo: sau **{remaining_minutes:.0f} phút**",
+                    color=discord.Color.blue(),
+                    timestamp=datetime.now()
+                )
+                embed.set_footer(text=f"Interval: {CHECK_INTERVAL_MINUTES} phút")
+                
+                try:
+                    await channel.send(embed=embed)
+                    print(f"📢 [Steam Deals] Đã gửi thông báo restart")
+                except Exception as e:
+                    print(f"⚠️  [Steam Deals] Không thể gửi thông báo restart: {e}")
+                
+                return
+        else:
+            print(f"ℹ️  [Steam Deals] Chưa có lần check nào trước đó")
+        
+        # Thực hiện fetch deals
         try:
             deals = await self.fetch_steam_deals()
             print(f"📊 [Steam Deals] Tìm thấy {len(deals)} deals")
@@ -50,7 +112,7 @@ class SteamDealsCog(commands.Cog):
                             url=deal['url'],
                             description=f"Giá mới: **${deal['price']:.2f}**\nGiá cũ: ~~${deal['old_price']:.2f}~~\nGiảm: **{deal['discount']}%**",
                             color=discord.Color.red(),
-                            timestamp=datetime.datetime.utcnow()
+                            timestamp=datetime.now()
                         )
                         embed.set_thumbnail(url=deal['image'])
                         
@@ -67,6 +129,10 @@ class SteamDealsCog(commands.Cog):
                 print("ℹ️  [Steam Deals] Không có deals mới để thông báo")
             else:
                 print(f"✅ [Steam Deals] Đã gửi {new_deals} deals mới")
+            
+            # Lưu thời gian check
+            self.save_last_check_time()
+            print(f"💾 [Steam Deals] Đã lưu thời gian check: {now.strftime('%Y-%m-%d %H:%M:%S')}")
                 
         except Exception as e:
             print(f"❌ [Steam Deals] Lỗi khi kiểm tra deals: {e}")
