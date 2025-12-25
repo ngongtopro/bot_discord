@@ -9,3 +9,4 @@ waiting_cogs/
 .pytest_cache/
 data/
 mongo-backup/
+projects/

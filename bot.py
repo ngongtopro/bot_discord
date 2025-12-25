@@ -173,4 +173,5 @@ async def main():
 
 if __name__ == "__main__":
     # Run the bot
+    print("🚀 Khởi động bot...")
     asyncio.run(main())
