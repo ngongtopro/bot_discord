@@ -20,7 +20,6 @@ class SteamDealsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.last_announced = set()
-        self.is_first_run = True  # Đánh dấu lần chạy đầu tiên
         
         logging.info("[Steam Deals] Đang khởi tạo SteamDealsCog...")
         
@@ -72,25 +71,7 @@ class SteamDealsCog(commands.Cog):
         
         logging.info(f"[Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
         
-        # Nếu không phải lần chạy đầu tiên, kiểm tra ngày check cuối cùng
-        if not self.is_first_run:
-            last_check_date = self.load_last_check_date()
-            today = datetime.now().strftime('%Y-%m-%d')
-            
-            if last_check_date:
-                logging.info(f"[Steam Deals] Ngày check cuối: {last_check_date}")
-                logging.info(f"[Steam Deals] Ngày hôm nay: {today}")
-                
-                # Nếu đã check hôm nay rồi, bỏ qua
-                if last_check_date == today:
-                    logging.info(f"⏭[Steam Deals] Đã check hôm nay rồi, bỏ qua")
-                    return
-            else:
-                logging.info(f"[Steam Deals] Chưa có lần check nào trước đó")
-        else:
-            logging.info(f"[Steam Deals] Lần chạy đầu tiên sau khi restart - bỏ qua kiểm tra ngày")
-            self.is_first_run = False  # Đánh dấu đã chạy lần đầu
-        
+        # Lấy ngày hiện tại
         today = datetime.now().strftime('%Y-%m-%d')
 
         # Thực hiện fetch deals
@@ -144,9 +125,26 @@ class SteamDealsCog(commands.Cog):
         try:
             logging.info("[Steam Deals] Đang chờ bot sẵn sàng...")
             await self.bot.wait_until_ready()
-            logging.info("[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
+            logging.info("[Steam Deals] Bot đã sẵn sàng!")
             
-            # Gọi check_steam_deals thủ công lần đầu tiên
+            # Kiểm tra ngày check cuối cùng cho lần chạy đầu tiên (restart)
+            last_check_date = self.load_last_check_date()
+            today = datetime.now().strftime('%Y-%m-%d')
+            
+            if last_check_date:
+                logging.info(f"[Steam Deals] Ngày check cuối: {last_check_date}")
+                logging.info(f"[Steam Deals] Ngày hôm nay: {today}")
+                
+                if last_check_date == today:
+                    logging.info(f"✅ [Steam Deals] Đã check Steam Deals hôm nay rồi")
+                    logging.info(f"⏰ [Steam Deals] Lần check tiếp theo: {CHECK_TIME_HOUR:02d}:{CHECK_TIME_MINUTE:02d} ngày mai")
+                    return  # Không chạy lần đầu
+                else:
+                    logging.info(f"🔄 [Steam Deals] Chưa check hôm nay, bắt đầu check ngay...")
+            else:
+                logging.info(f"🔄 [Steam Deals] Chưa có lần check nào, bắt đầu check ngay...")
+            
+            # Gọi check_steam_deals thủ công lần đầu tiên nếu chưa check hôm nay
             await self.check_steam_deals()
             
         except Exception as e:
