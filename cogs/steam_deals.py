@@ -145,6 +145,10 @@ class SteamDealsCog(commands.Cog):
             logging.info("[Steam Deals] Đang chờ bot sẵn sàng...")
             await self.bot.wait_until_ready()
             logging.info("[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
+            
+            # Gọi check_steam_deals thủ công lần đầu tiên
+            await self.check_steam_deals()
+            
         except Exception as e:
             logging.error(f"[Steam Deals] Lỗi trong before_loop: {e}")
             import traceback
