@@ -191,5 +191,5 @@ async def main():
 
 if __name__ == "__main__":
     # Run the bot
-    logging.info("🚀 Khởi động bot....")
+    logging.info("🚀 Khởi động bot...")
     asyncio.run(main())
