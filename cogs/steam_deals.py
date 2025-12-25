@@ -19,7 +19,7 @@ class SteamDealsCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.last_announced = set()
-        self.is_restart = True
+        self.is_first_run = True  # Đánh dấu lần chạy đầu tiên
         self.check_steam_deals.start()
     
     def load_last_check_date(self):
@@ -62,44 +62,26 @@ class SteamDealsCog(commands.Cog):
         
         print(f"[Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
         
-        # Kiểm tra ngày check cuối cùng
-        last_check_date = self.load_last_check_date()
-        today = datetime.now().strftime('%Y-%m-%d')
-        
-        if last_check_date:
-            print(f"[Steam Deals] Ngày check cuối: {last_check_date}")
-            print(f"[Steam Deals] Ngày hôm nay: {today}")
+        # Nếu không phải lần chạy đầu tiên, kiểm tra ngày check cuối cùng
+        if not self.is_first_run:
+            last_check_date = self.load_last_check_date()
+            today = datetime.now().strftime('%Y-%m-%d')
             
-            # Nếu đã check hôm nay rồi, bỏ qua
-            if last_check_date == today:
-                print(f"⏭[Steam Deals] Đã check hôm nay rồi, bỏ qua")
+            if last_check_date:
+                print(f"[Steam Deals] Ngày check cuối: {last_check_date}")
+                print(f"[Steam Deals] Ngày hôm nay: {today}")
                 
-                # Tính thời gian check tiếp theo (7h sáng ngày mai)
-                now = datetime.now()
-                next_check = now.replace(hour=CHECK_TIME_HOUR, minute=CHECK_TIME_MINUTE, second=0, microsecond=0)
-                if now >= next_check:
-                    next_check += timedelta(days=1)
-                time_until_next = next_check - now
-                hours_until_next = time_until_next.total_seconds() / 3600
-                
-                if self.is_restart:
-                    # Gửi thông báo bot restart
-                    embed = discord.Embed(
-                        title="Bot đã được restart",
-                        description=f"Steam Deals checker đang hoạt động.\nĐã check hôm nay rồi.\nLần check tiếp theo: **{next_check.strftime('%d/%m/%Y %H:%M')}** (sau ~{hours_until_next:.1f} giờ)",
-                        color=discord.Color.blue(),
-                        timestamp=datetime.now()
-                    )
-                    embed.set_footer(text=f"Check hàng ngày lúc {CHECK_TIME_HOUR:02d}:{CHECK_TIME_MINUTE:02d}")
-                    
-                    try:
-                        await channel.send(embed=embed)
-                        print(f"[Steam Deals] Đã gửi thông báo restart")
-                    except Exception as e:
-                        print(f"[Steam Deals] Không thể gửi thông báo restart: {e}")
+                # Nếu đã check hôm nay rồi, bỏ qua
+                if last_check_date == today:
+                    print(f"⏭[Steam Deals] Đã check hôm nay rồi, bỏ qua")
                     return
+            else:
+                print(f"[Steam Deals] Chưa có lần check nào trước đó")
         else:
-            print(f"[Steam Deals] Chưa có lần check nào trước đó")
+            print(f"[Steam Deals] Lần chạy đầu tiên sau khi restart - bỏ qua kiểm tra ngày")
+            self.is_first_run = False  # Đánh dấu đã chạy lần đầu
+        
+        today = datetime.now().strftime('%Y-%m-%d')
 
         # Thực hiện fetch deals
         try:
@@ -145,7 +127,12 @@ class SteamDealsCog(commands.Cog):
             print(f"❌ [Steam Deals] Lỗi khi kiểm tra deals: {e}")
             import traceback
             traceback.print_exc()
-        self.is_restart = False
+    
+    @check_steam_deals.before_loop
+    async def before_check_steam_deals(self):
+        """Chờ bot sẵn sàng trước khi bắt đầu loop"""
+        await self.bot.wait_until_ready()
+        print(f"[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
     
 
     async def fetch_steam_deals(self):
