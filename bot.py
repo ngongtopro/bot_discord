@@ -62,7 +62,7 @@ class DiscordBot(commands.Bot):
 
     async def setup_hook(self):
         """Called when the bot is starting up"""
-        print(f'{self.user} đã đăng nhập!')
+        logging.info(f'{self.user} đã đăng nhập!')
         await self.load_cogs()
         
     async def load_cogs(self):
@@ -71,15 +71,15 @@ class DiscordBot(commands.Bot):
             if filename.endswith('.py') and not filename.startswith('__'):
                 try:
                     await self.load_extension(f'cogs.{filename[:-3]}')
-                    print(f'✅ Đã load cog: {filename}')
+                    logging.info(f'✅ Đã load cog: {filename}')
                 except Exception as e:
-                    print(f'❌ Lỗi load cog {filename}: {e}')
+                    logging.error(f'❌ Lỗi load cog {filename}: {e}')
 
     async def on_ready(self):
         """Called when bot is ready"""
-        print(f'Bot {self.user} đã sẵn sàng!')
-        print(f'Bot ID: {self.user.id}')
-        print(f'Guild ID: {self.guild_id}')
+        logging.info(f'Bot {self.user} đã sẵn sàng!')
+        logging.info(f'Bot ID: {self.user.id}')
+        logging.info(f'Guild ID: {self.guild_id}')
         
         # Change bot status
         await self.change_presence(
@@ -95,34 +95,34 @@ class DiscordBot(commands.Bot):
                 # Clear global commands trước (để tránh conflict)
                 self.tree.clear_commands(guild=None)
                 await self.tree.sync()  # Sync empty global commands
-                print("Đã xóa global commands")
+                logging.info("Đã xóa global commands")
                 
                 # Debug: kiểm tra số lượng commands trong tree
                 guild_obj = discord.Object(id=self.guild_id)
                 all_commands = self.tree.get_commands(guild=guild_obj)
                 global_commands = self.tree.get_commands()
                 
-                print(f"Debug: {len(all_commands)} commands trong guild tree")
-                print(f"Debug: {len(global_commands)} commands trong global tree")
+                logging.info(f"Debug: {len(all_commands)} commands trong guild tree")
+                logging.info(f"Debug: {len(global_commands)} commands trong global tree")
                 
                 # List commands trong tree
                 for cmd in all_commands:
-                    print(f"Guild command trong tree: {cmd.name}")
+                    logging.info(f"Guild command trong tree: {cmd.name}")
                 for cmd in global_commands:
-                    print(f"Global command trong tree: {cmd.name}")
+                    logging.info(f"Global command trong tree: {cmd.name}")
                 
                 # Sync guild commands
                 synced_guild = await self.tree.sync(guild=guild_obj)
                 
-                print(f"Đã sync {len(synced_guild)} guild commands tới guild {self.guild_id}")
+                logging.info(f"Đã sync {len(synced_guild)} guild commands tới guild {self.guild_id}")
                 
                 # List all guild commands
                 for cmd in synced_guild:
-                    print(f"  - /{cmd.name}: {cmd.description}")
+                    logging.info(f"  - /{cmd.name}: {cmd.description}")
                     
                 self._commands_added = True
             except Exception as e:
-                print(f"Lỗi khi sync guild commands: {e}")
+                logging.error(f"Lỗi khi sync guild commands: {e}")
     
     # Built-in slash command callbacks
     async def _botinfo_callback(self, interaction: discord.Interaction):
@@ -146,17 +146,17 @@ async def main():
     # Ưu tiên lấy từ system environment variables (systemd) trước
     token = os.environ.get('TOKEN') or os.getenv('TOKEN')
     if not token:
-        print("❌ Không tìm thấy TOKEN trong environment variables!")
+        logging.error("❌ Không tìm thấy TOKEN trong environment variables!")
         return
     
     application_id = os.environ.get('APPLICATION_ID') or os.getenv('APPLICATION_ID')
     if not application_id:
-        print("❌ Không tìm thấy APPLICATION_ID trong environment variables!")
+        logging.error("❌ Không tìm thấy APPLICATION_ID trong environment variables!")
         return
         
     guild_id = os.environ.get('GUILD_ID') or os.getenv('GUILD_ID')
     if not guild_id:
-        print("❌ Không tìm thấy GUILD_ID trong environment variables!")
+        logging.error("❌ Không tìm thấy GUILD_ID trong environment variables!")
         return
     
     # Create and run bot
@@ -165,13 +165,13 @@ async def main():
     try:
         await bot.start(token)
     except KeyboardInterrupt:
-        print("\n🛑 Bot đã được dừng bởi người dùng")
+        logging.info("\n🛑 Bot đã được dừng bởi người dùng")
     except Exception as e:
-        print(f"❌ Lỗi khi chạy bot: {e}")
+        logging.error(f"❌ Lỗi khi chạy bot: {e}")
     finally:
         await bot.close()
 
 if __name__ == "__main__":
     # Run the bot
-    print("🚀 Khởi động bot....")
+    logging.info("🚀 Khởi động bot....")
     asyncio.run(main())

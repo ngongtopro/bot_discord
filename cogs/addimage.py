@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import os
 import json
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables từ .env (chỉ dùng khi không có trong system env)
@@ -84,7 +85,7 @@ class AddImage(commands.Cog):
                 
             except Exception as e:
                 failed_count += 1
-                print(f"❌ Lỗi khi thêm emoji {image_file}: {e}")
+                logging.error(f"❌ Lỗi khi thêm emoji {image_file}: {e}")
         
         # Create JSON output
         json_output = {

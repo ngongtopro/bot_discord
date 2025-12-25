@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import aiohttp
 import os
 import json
+import logging
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, time
 
@@ -32,7 +33,7 @@ class SteamDealsCog(commands.Cog):
                     if last_check_date_str:
                         return last_check_date_str  # Trả về string dạng "YYYY-MM-DD"
         except Exception as e:
-            print(f"[Steam Deals] Lỗi đọc last check date: {e}")
+            logging.error(f"[Steam Deals] Lỗi đọc last check date: {e}")
         return None
     
     def save_last_check_date(self):
@@ -45,22 +46,22 @@ class SteamDealsCog(commands.Cog):
                     'last_check_date': today
                 }, f)
         except Exception as e:
-            print(f"[Steam Deals] Lỗi lưu last check date: {e}")
+            logging.error(f"[Steam Deals] Lỗi lưu last check date: {e}")
 
     def cog_unload(self):
         self.check_steam_deals.cancel()
 
     @tasks.loop(time=time(hour=CHECK_TIME_HOUR, minute=CHECK_TIME_MINUTE))
     async def check_steam_deals(self):
-        print(f"[Steam Deals] Bắt đầu kiểm tra deals lúc {datetime.now().strftime('%H:%M:%S')}...")
+        logging.info(f"[Steam Deals] Bắt đầu kiểm tra deals lúc {datetime.now().strftime('%H:%M:%S')}...")
         
         channel = await self.bot.fetch_channel(STEAM_DEALS_CHANNEL_ID)
         if not channel:
-            print(f"[Steam Deals] Không tìm thấy channel ID: {STEAM_DEALS_CHANNEL_ID}")
-            print(f"   Hãy kiểm tra STEAM_DEALS_CHANNEL_ID trong file .env")
+            logging.error(f"[Steam Deals] Không tìm thấy channel ID: {STEAM_DEALS_CHANNEL_ID}")
+            logging.error(f"   Hãy kiểm tra STEAM_DEALS_CHANNEL_ID trong file .env")
             return
         
-        print(f"[Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
+        logging.info(f"[Steam Deals] Tìm thấy channel: {channel.name} ({channel.id})")
         
         # Nếu không phải lần chạy đầu tiên, kiểm tra ngày check cuối cùng
         if not self.is_first_run:
@@ -68,17 +69,17 @@ class SteamDealsCog(commands.Cog):
             today = datetime.now().strftime('%Y-%m-%d')
             
             if last_check_date:
-                print(f"[Steam Deals] Ngày check cuối: {last_check_date}")
-                print(f"[Steam Deals] Ngày hôm nay: {today}")
+                logging.info(f"[Steam Deals] Ngày check cuối: {last_check_date}")
+                logging.info(f"[Steam Deals] Ngày hôm nay: {today}")
                 
                 # Nếu đã check hôm nay rồi, bỏ qua
                 if last_check_date == today:
-                    print(f"⏭[Steam Deals] Đã check hôm nay rồi, bỏ qua")
+                    logging.info(f"⏭[Steam Deals] Đã check hôm nay rồi, bỏ qua")
                     return
             else:
-                print(f"[Steam Deals] Chưa có lần check nào trước đó")
+                logging.info(f"[Steam Deals] Chưa có lần check nào trước đó")
         else:
-            print(f"[Steam Deals] Lần chạy đầu tiên sau khi restart - bỏ qua kiểm tra ngày")
+            logging.info(f"[Steam Deals] Lần chạy đầu tiên sau khi restart - bỏ qua kiểm tra ngày")
             self.is_first_run = False  # Đánh dấu đã chạy lần đầu
         
         today = datetime.now().strftime('%Y-%m-%d')
@@ -86,10 +87,10 @@ class SteamDealsCog(commands.Cog):
         # Thực hiện fetch deals
         try:
             deals = await self.fetch_steam_deals()
-            print(f"[Steam Deals] Tìm thấy {len(deals)} deals")
+            logging.info(f"[Steam Deals] Tìm thấy {len(deals)} deals")
 
             if not deals:
-                print(f"[Steam Deals] Không có deals nào được tìm thấy")
+                logging.info(f"[Steam Deals] Không có deals nào được tìm thấy")
                 return
             
             new_deals = 0
@@ -109,22 +110,22 @@ class SteamDealsCog(commands.Cog):
                         self.last_announced.add(deal['id'])
                         new_deals += 1
                         
-                        print(f"📢 [Steam Deals] Đã gửi deal: {deal['name']} (-{deal['discount']}%)")
+                        logging.info(f"📢 [Steam Deals] Đã gửi deal: {deal['name']} (-{deal['discount']}%)")
                         
                     except Exception as e:
-                        print(f"❌ [Steam Deals] Lỗi gửi tin nhắn cho deal {deal['name']}: {e}")
+                        logging.error(f"❌ [Steam Deals] Lỗi gửi tin nhắn cho deal {deal['name']}: {e}")
                         
             if new_deals == 0:
-                print("ℹ️  [Steam Deals] Không có deals mới để thông báo")
+                logging.info("ℹ️  [Steam Deals] Không có deals mới để thông báo")
             else:
-                print(f"✅ [Steam Deals] Đã gửi {new_deals} deals mới")
+                logging.info(f"✅ [Steam Deals] Đã gửi {new_deals} deals mới")
             
             # Lưu ngày check (chỉ lưu ngày, không lưu giờ)
             self.save_last_check_date()
-            print(f"💾 [Steam Deals] Đã lưu ngày check: {today}")
+            logging.info(f"💾 [Steam Deals] Đã lưu ngày check: {today}")
                 
         except Exception as e:
-            print(f"❌ [Steam Deals] Lỗi khi kiểm tra deals: {e}")
+            logging.error(f"❌ [Steam Deals] Lỗi khi kiểm tra deals: {e}")
             import traceback
             traceback.print_exc()
     
@@ -132,7 +133,7 @@ class SteamDealsCog(commands.Cog):
     async def before_check_steam_deals(self):
         """Chờ bot sẵn sàng trước khi bắt đầu loop"""
         await self.bot.wait_until_ready()
-        print(f"[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
+        logging.info(f"[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
     
 
     async def fetch_steam_deals(self):
@@ -141,30 +142,30 @@ class SteamDealsCog(commands.Cog):
         url = "https://store.steampowered.com/api/featuredcategories/?cc=us&l=en"
         deals = []
         
-        print(f"🌐 [Steam Deals] Đang gọi API Steam: {url}")
+        logging.info(f"🌐 [Steam Deals] Đang gọi API Steam: {url}")
         
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, ssl=False) as resp:  # Tắt SSL verification nếu gặp lỗi certificate
-                    print(f"📡 [Steam Deals] HTTP Status: {resp.status}")
+                    logging.info(f"📡 [Steam Deals] HTTP Status: {resp.status}")
                     
                     if resp.status == 200:
                         try:
                             data = await resp.json()
-                            print(f"📋 [Steam Deals] Nhận được dữ liệu từ Steam API")
+                            logging.info(f"📋 [Steam Deals] Nhận được dữ liệu từ Steam API")
                             
                             # Kiểm tra xem data có đúng cấu trúc không
                             if not isinstance(data, dict):
-                                print(f"⚠️  [Steam Deals] Dữ liệu không đúng định dạng (không phải dict)")
+                                logging.warning(f"⚠️  [Steam Deals] Dữ liệu không đúng định dạng (không phải dict)")
                                 return deals
                             
                             specials = data.get('specials', {})
                             if not isinstance(specials, dict):
-                                print(f"⚠️  [Steam Deals] 'specials' không đúng định dạng")
+                                logging.warning(f"⚠️  [Steam Deals] 'specials' không đúng định dạng")
                                 return deals
                                 
                             items = specials.get('items', [])
-                            print(f"🎯 [Steam Deals] Số lượng specials từ API: {len(items)}")
+                            logging.info(f"🎯 [Steam Deals] Số lượng specials từ API: {len(items)}")
                             
                             for i, item in enumerate(items):
                                 try:
@@ -182,28 +183,28 @@ class SteamDealsCog(commands.Cog):
                                         deals.append(deal)
                                         
                                         if i < 3:  # Log first 3 deals for debugging
-                                            print(f"   Deal {i+1}: {deal['name']} (-{discount}%)")
+                                            logging.info(f"   Deal {i+1}: {deal['name']} (-{discount}%)")
                                 except (KeyError, TypeError) as e:
-                                    print(f"⚠️  [Steam Deals] Bỏ qua item không hợp lệ (index {i}): {e}")
+                                    logging.warning(f"⚠️  [Steam Deals] Bỏ qua item không hợp lệ (index {i}): {e}")
                                     continue
                                     
                         except aiohttp.ContentTypeError as e:
-                            print(f"⚠️  [Steam Deals] Lỗi parse JSON từ Steam API: Response không phải JSON")
+                            logging.warning(f"⚠️  [Steam Deals] Lỗi parse JSON từ Steam API: Response không phải JSON")
                         except Exception as e:
-                            print(f"⚠️  [Steam Deals] Lỗi xử lý dữ liệu từ Steam API: {e}")
+                            logging.warning(f"⚠️  [Steam Deals] Lỗi xử lý dữ liệu từ Steam API: {e}")
                     else:
-                        print(f"❌ [Steam Deals] HTTP Error: {resp.status}")
+                        logging.error(f"❌ [Steam Deals] HTTP Error: {resp.status}")
                         
         except aiohttp.ClientConnectorCertificateError as e:
-            print(f"⚠️  [Steam Deals] Lỗi SSL Certificate - Không thể kết nối đến Steam (certificate verification failed)")
+            logging.warning(f"⚠️  [Steam Deals] Lỗi SSL Certificate - Không thể kết nối đến Steam (certificate verification failed)")
         except aiohttp.ClientConnectorError as e:
-            print(f"⚠️  [Steam Deals] Lỗi kết nối đến Steam API - Kiểm tra internet hoặc Steam có thể đang down")
+            logging.warning(f"⚠️  [Steam Deals] Lỗi kết nối đến Steam API - Kiểm tra internet hoặc Steam có thể đang down")
         except aiohttp.ClientError as e:
-            print(f"⚠️  [Steam Deals] Lỗi client khi gọi Steam API: {type(e).__name__}")
+            logging.warning(f"⚠️  [Steam Deals] Lỗi client khi gọi Steam API: {type(e).__name__}")
         except Exception as e:
-            print(f"❌ [Steam Deals] Lỗi không xác định khi fetch Steam API: {type(e).__name__} - {e}")
+            logging.error(f"❌ [Steam Deals] Lỗi không xác định khi fetch Steam API: {type(e).__name__} - {e}")
             
-        print(f"✅ [Steam Deals] Tổng cộng {len(deals)} deals có discount")
+        logging.info(f"✅ [Steam Deals] Tổng cộng {len(deals)} deals có discount")
         return deals
 
 async def setup(bot):

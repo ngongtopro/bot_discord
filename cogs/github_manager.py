@@ -4,6 +4,7 @@ from discord.ext import commands
 import os
 import json
 import aiohttp
+import logging
 from datetime import datetime
 from dotenv import load_dotenv
 from utils.clone_or_pull import clone_or_pull_repo
@@ -86,7 +87,7 @@ class GitHubManager(commands.Cog):
                     else:
                         return None
         except Exception as e:
-            print(f"Error getting repo info: {e}")
+            logging.error(f"Error getting repo info: {e}")
             return None
 
     async def send_to_webhook(self, repos):
@@ -124,7 +125,7 @@ class GitHubManager(commands.Cog):
                 async with session.post(WEBHOOK_URL, json={"embeds": [embed]}) as response:
                     return response.status == 204
         except Exception as e:
-            print(f"Error sending webhook: {e}")
+            logging.error(f"Error sending webhook: {e}")
             return False
 
     @app_commands.command(name="addrepo", description="Thêm link GitHub repository public")

@@ -5,6 +5,7 @@ import json
 import sys
 import asyncio
 import platform
+import logging
 from dotenv import load_dotenv
 
 # Load environment variables từ .env (chỉ dùng khi không có trong system env) test pull
@@ -25,15 +26,15 @@ class MessageMonitor(commands.Cog):
         self.is_ubuntu = self.check_is_ubuntu()
         
         if self.monitor_channel_id:
-            print(f"Message Monitor đã được kích hoạt cho channel ID: {self.monitor_channel_id}")
-            print(f"Auto Deploy: {'Enabled' if self.auto_deploy_enabled else 'Disabled'}")
-            print(f"Platform: {platform.system()} (Ubuntu: {self.is_ubuntu})")
+            logging.info(f"Message Monitor đã được kích hoạt cho channel ID: {self.monitor_channel_id}")
+            logging.info(f"Auto Deploy: {'Enabled' if self.auto_deploy_enabled else 'Disabled'}")
+            logging.info(f"Platform: {platform.system()} (Ubuntu: {self.is_ubuntu})")
         else:
-            print("MONITOR_CHANNEL_ID chưa được cấu hình trong .env file")
+            logging.warning("MONITOR_CHANNEL_ID chưa được cấu hình trong .env file")
     
     def check_is_ubuntu(self):
         """Kiểm tra xem có đang chạy trên Ubuntu server không"""
-        print("Kiểm tra hệ điều hành...")
+        logging.info("Kiểm tra hệ điều hành...")
         try:
             if platform.system() != 'Linux':
                 return False
@@ -54,12 +55,12 @@ class MessageMonitor(commands.Cog):
         # Kiểm tra xem có phải channel được theo dõi không
         if self.monitor_channel_id and message.channel.id == self.monitor_channel_id:
             # In thông tin tin nhắn
-            print("\n" + "="*60)
-            print(f"TIN NHẮN MỚI TỪ CHANNEL: {message.channel.name}")
-            print("="*60)
-            print(f"Người gửi: {message.author.name} ({message.author.id})")
-            print(f"Thời gian: {message.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
-            print(f"Nội dung gốc: {message.content}")
+            logging.info("\n" + "="*60)
+            logging.info(f"TIN NHẮN MỚI TỪ CHANNEL: {message.channel.name}")
+            logging.info("="*60)
+            logging.info(f"Người gửi: {message.author.name} ({message.author.id})")
+            logging.info(f"Thời gian: {message.created_at.strftime('%Y-%m-%d %H:%M:%S')}")
+            logging.info(f"Nội dung gốc: {message.content}")
 
             # Thử parse JSON nếu nội dung là JSON
             try:
@@ -79,13 +80,13 @@ class MessageMonitor(commands.Cog):
                 # Kiểm tra xem có phải JSON không
                 if content.startswith('{') and content.endswith('}'):
                     json_data = json.loads(content)
-                    print("\nPARSED JSON DATA:")
-                    print(json.dumps(json_data, indent=2, ensure_ascii=False))
+                    logging.info("\nPARSED JSON DATA:")
+                    logging.info(json.dumps(json_data, indent=2, ensure_ascii=False))
                     
                     # In từng field của JSON một cách rõ ràng
-                    print("\nCHI TIẾT:")
+                    logging.info("\nCHI TIẾT:")
                     for key, value in json_data.items():
-                        print(f"  • {key}: {value}")
+                        logging.info(f"  • {key}: {value}")
                     
                     # Kiểm tra nếu là GitHub push webhook và thực hiện auto deploy
                     if (json_data.get('type') == 'github_push' and 
@@ -97,26 +98,26 @@ class MessageMonitor(commands.Cog):
 
                         # Chỉ deploy nếu là repo ngongtopro/bot_discord và branch main
                         if 'ngongtopro/bot_discord' in repo.lower() and branch == 'main':
-                            print("\nTRIGGER AUTO DEPLOY!")
+                            logging.info("\nTRIGGER AUTO DEPLOY!")
                             await self.auto_deploy()
                         else:
-                            print(f"\nBỏ qua deploy - Repo: {repo}, Branch: {branch}")
+                            logging.info(f"\nBỏ qua deploy - Repo: {repo}, Branch: {branch}")
                     
             except json.JSONDecodeError:
                 # Nếu không phải JSON, chỉ in nội dung bình thường
                 pass
             except Exception as e:
-                print(f"Lỗi khi parse JSON: {e}")
+                logging.error(f"Lỗi khi parse JSON: {e}")
     
     async def auto_deploy(self):
         """Tự động pull code và restart bot"""
         try:
-            print("="*60)
-            print("BẮT ĐẦU AUTO DEPLOY")
-            print("="*60)
+            logging.info("="*60)
+            logging.info("BẮT ĐẦU AUTO DEPLOY")
+            logging.info("="*60)
             
             # Git pull
-            print("Đang pull code từ GitHub...")
+            logging.info("Đang pull code từ GitHub...")
             process = await asyncio.create_subprocess_exec(
                 'git', 'pull', 'origin', 'main',
                 stdout=asyncio.subprocess.PIPE,
@@ -127,34 +128,34 @@ class MessageMonitor(commands.Cog):
             
             if process.returncode == 0:
                 output = stdout.decode('utf-8', errors='ignore')
-                print(f"Pull thành công:\n{output}")
+                logging.info(f"Pull thành công:\n{output}")
                 
                 if 'Already up to date' in output or 'Already up-to-date' in output:
-                    print("ℹCode đã là phiên bản mới nhất")
+                    logging.info("ℹCode đã là phiên bản mới nhất")
                     return
                 
                 # Cài đặt dependencies nếu có thay đổi requirements.txt
                 if 'requirements.txt' in output:
-                    print("Đang cài đặt dependencies...")
+                    logging.info("Đang cài đặt dependencies...")
                     pip_process = await asyncio.create_subprocess_exec(
                         sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt',
                         stdout=asyncio.subprocess.PIPE,
                         stderr=asyncio.subprocess.PIPE
                     )
                     await pip_process.communicate()
-                    print("Đã cài đặt dependencies")
+                    logging.info("Đã cài đặt dependencies")
                 
                 # Restart bot
-                print("\nĐANG RESTART BOT...")
+                logging.info("\nĐANG RESTART BOT...")
                 await asyncio.sleep(2)
                 os.execv(sys.executable, [sys.executable] + sys.argv)
                 
             else:
                 error = stderr.decode('utf-8', errors='ignore')
-                print(f"Lỗi khi pull code:\n{error}")
+                logging.error(f"Lỗi khi pull code:\n{error}")
                 
         except Exception as e:
-            print(f"Lỗi auto deploy: {e}")
+            logging.error(f"Lỗi auto deploy: {e}")
 
 
 async def setup(bot):
