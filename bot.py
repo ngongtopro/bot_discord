@@ -67,13 +67,24 @@ class DiscordBot(commands.Bot):
         
     async def load_cogs(self):
         """Load all cogs from cogs folder"""
+        logging.info("="*60)
+        logging.info("BẮT ĐẦU LOAD COGS")
+        logging.info("="*60)
+        
         for filename in os.listdir('./cogs'):
             if filename.endswith('.py') and not filename.startswith('__'):
                 try:
+                    logging.info(f'⏳ Đang load cog: {filename}...')
                     await self.load_extension(f'cogs.{filename[:-3]}')
                     logging.info(f'✅ Đã load cog: {filename}')
                 except Exception as e:
                     logging.error(f'❌ Lỗi load cog {filename}: {e}')
+                    import traceback
+                    traceback.print_exc()
+        
+        logging.info("="*60)
+        logging.info("HOÀN TẤT LOAD COGS")
+        logging.info("="*60)
 
     async def on_ready(self):
         """Called when bot is ready"""
@@ -121,8 +132,15 @@ class DiscordBot(commands.Bot):
                     logging.info(f"  - /{cmd.name}: {cmd.description}")
                     
                 self._commands_added = True
+                
+                logging.info("="*60)
+                logging.info("✅ BOT ĐÃ SẴN SÀNG HOÀN TOÀN!")
+                logging.info("="*60)
+                
             except Exception as e:
                 logging.error(f"Lỗi khi sync guild commands: {e}")
+                import traceback
+                traceback.print_exc()
     
     # Built-in slash command callbacks
     async def _botinfo_callback(self, interaction: discord.Interaction):

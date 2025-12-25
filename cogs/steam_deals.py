@@ -21,7 +21,16 @@ class SteamDealsCog(commands.Cog):
         self.bot = bot
         self.last_announced = set()
         self.is_first_run = True  # Đánh dấu lần chạy đầu tiên
-        self.check_steam_deals.start()
+        
+        logging.info("[Steam Deals] Đang khởi tạo SteamDealsCog...")
+        
+        try:
+            self.check_steam_deals.start()
+            logging.info("[Steam Deals] Đã bắt đầu task loop")
+        except Exception as e:
+            logging.error(f"[Steam Deals] Lỗi khi khởi động task loop: {e}")
+            import traceback
+            traceback.print_exc()
     
     def load_last_check_date(self):
         """Đọc ngày check cuối cùng từ file (chỉ lấy ngày, không quan tâm giờ)"""
@@ -132,8 +141,21 @@ class SteamDealsCog(commands.Cog):
     @check_steam_deals.before_loop
     async def before_check_steam_deals(self):
         """Chờ bot sẵn sàng trước khi bắt đầu loop"""
-        await self.bot.wait_until_ready()
-        logging.info(f"[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
+        try:
+            logging.info("[Steam Deals] Đang chờ bot sẵn sàng...")
+            await self.bot.wait_until_ready()
+            logging.info("[Steam Deals] Bot đã sẵn sàng, bắt đầu check ngay lập tức...")
+        except Exception as e:
+            logging.error(f"[Steam Deals] Lỗi trong before_loop: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    @check_steam_deals.error
+    async def check_steam_deals_error(self, error):
+        """Handle errors in the task loop"""
+        logging.error(f"[Steam Deals] Lỗi trong task loop: {error}")
+        import traceback
+        traceback.print_exc()
     
 
     async def fetch_steam_deals(self):
