@@ -9,8 +9,12 @@ import logging
 # Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+# Setup logging với format đẹp hơn
+logging.basicConfig(
+    level=logging.INFO,
+    format='[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 class DiscordBot(commands.Bot):
     def __init__(self):
@@ -79,8 +83,7 @@ class DiscordBot(commands.Bot):
                     logging.info(f'✅ Đã load cog: {filename}')
                 except Exception as e:
                     logging.error(f'❌ Lỗi load cog {filename}: {e}')
-                    import traceback
-                    traceback.print_exc()
+                    logging.exception(e)
         
         logging.info("="*60)
         logging.info("HOÀN TẤT LOAD COGS")
@@ -139,8 +142,7 @@ class DiscordBot(commands.Bot):
                 
             except Exception as e:
                 logging.error(f"Lỗi khi sync guild commands: {e}")
-                import traceback
-                traceback.print_exc()
+                logging.exception(e)
     
     # Built-in slash command callbacks
     async def _botinfo_callback(self, interaction: discord.Interaction):
