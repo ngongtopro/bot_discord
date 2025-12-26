@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import os
 import asyncio
+import json
 from dotenv import load_dotenv
 import logging
 
@@ -15,6 +16,8 @@ logging.basicConfig(
     format='[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+
+COMMAND_IGNORE_FILE = "data/command_ignore.json"
 
 class DiscordBot(commands.Bot):
     def __init__(self):
@@ -41,6 +44,36 @@ class DiscordBot(commands.Bot):
         self.is_dev = stage == 'dev'
         
         self._commands_added = False
+        self.ignored_commands = self._load_ignored_commands()
+    
+    def _load_ignored_commands(self):
+        """Load danh sách commands bị ignore từ file JSON"""
+        try:
+            # Đảm bảo thư mục data tồn tại
+            os.makedirs("data", exist_ok=True)
+            
+            # Nếu file chưa tồn tại, tạo mới với danh sách rỗng
+            if not os.path.exists(COMMAND_IGNORE_FILE):
+                logging.info("📄 Tạo file command_ignore.json mới")
+                with open(COMMAND_IGNORE_FILE, 'w', encoding='utf-8') as f:
+                    json.dump([], f, indent=2)
+                return []
+            
+            # Đọc file nếu đã tồn tại
+            with open(COMMAND_IGNORE_FILE, 'r', encoding='utf-8') as f:
+                ignored_list = json.load(f)
+                if ignored_list:
+                    logging.info(f"🚫 Đã load {len(ignored_list)} commands bị ignore: {', '.join(ignored_list)}")
+                return ignored_list
+        except Exception as e:
+            logging.error(f"❌ Lỗi khi load command_ignore.json: {e}")
+            return []
+    
+    def is_command_ignored(self, command_name: str) -> bool:
+        """Kiểm tra xem command có bị ignore không"""
+        # Loại bỏ prefix "dev" nếu có để check base name
+        base_name = command_name.replace("dev", "", 1) if command_name.startswith("dev") else command_name
+        return base_name in self.ignored_commands or command_name in self.ignored_commands
         
     def userdata(self):
         return self.userdata_database
@@ -97,12 +130,16 @@ class DiscordBot(commands.Bot):
         logging.info(f'Bot {self.user} đã sẵn sàng!')
         logging.info(f'Bot ID: {self.user.id}')
         logging.info(f'Guild ID: {self.guild_id}')
+        logging.info(f'Stage: {self.stage.upper()}')
+        if self.is_dev:
+            logging.info(f'⚠️  CHẾ ĐỘ DEV - Commands sẽ có prefix "dev"')
         
         # Change bot status
+        status_text = "dev commands!" if self.is_dev else "slash commands!"
         await self.change_presence(
             activity=discord.Activity(
                 type=discord.ActivityType.watching,
-                name="slash commands!"
+                name=status_text
             )
         )
         
@@ -122,16 +159,29 @@ class DiscordBot(commands.Bot):
                 logging.info(f"Debug: {len(all_commands)} commands trong guild tree")
                 logging.info(f"Debug: {len(global_commands)} commands trong global tree")
                 
-                # List commands trong tree
+                # Filter out ignored commands
+                commands_to_sync = []
+                ignored_count = 0
+                
                 for cmd in all_commands:
-                    logging.info(f"Guild command trong tree: {cmd.name}")
-                for cmd in global_commands:
-                    logging.info(f"Global command trong tree: {cmd.name}")
+                    if self.is_command_ignored(cmd.name):
+                        logging.warning(f"🚫 Bỏ qua command: {cmd.name} (trong ignore list)")
+                        ignored_count += 1
+                    else:
+                        commands_to_sync.append(cmd)
+                        logging.info(f"✅ Command sẽ sync: {cmd.name}")
+                
+                # Xóa tất cả commands và chỉ thêm lại những commands không bị ignore
+                self.tree.clear_commands(guild=guild_obj)
+                for cmd in commands_to_sync:
+                    self.tree.add_command(cmd, guild=guild_obj)
                 
                 # Sync guild commands
                 synced_guild = await self.tree.sync(guild=guild_obj)
                 
                 logging.info(f"Đã sync {len(synced_guild)} guild commands tới guild {self.guild_id}")
+                if ignored_count > 0:
+                    logging.info(f"🚫 Đã bỏ qua {ignored_count} commands")
                 
                 # List all guild commands
                 for cmd in synced_guild:
