@@ -5,6 +5,7 @@ import os
 import json
 import logging
 from dotenv import load_dotenv
+from utils.command_helper import get_command_name
 
 # Load environment variables từ .env (chỉ dùng khi không có trong system env)
 load_dotenv()
@@ -17,10 +18,18 @@ class AddImage(commands.Cog):
     
     def __init__(self, bot):
         self.bot = bot
-
-    @app_commands.command(name="add_all_images", description="Add all images from image folder as emojis and create JSON output")
-    @app_commands.guilds(GUILD_ID)  # Restrict to specific guild
-    async def add_all_images(self, interaction: discord.Interaction):
+        # Tạo command với tên động
+        self.add_all_images_cmd = app_commands.Command(
+            name=get_command_name("add_all_images"),
+            description="Add all images from image folder as emojis and create JSON output",
+            callback=self.add_all_images_callback
+        )
+        self.bot.tree.add_command(self.add_all_images_cmd, guild=discord.Object(id=GUILD_ID))
+    
+    async def cog_unload(self):
+        self.bot.tree.remove_command(self.add_all_images_cmd.name, guild=discord.Object(id=GUILD_ID))
+    
+    async def add_all_images_callback(self, interaction: discord.Interaction):
         # Check if user is owner or admin
         if interaction.user.id != OWNER_ID:
             await interaction.response.send_message("❌ Chỉ owner mới được dùng lệnh này!", ephemeral=True)

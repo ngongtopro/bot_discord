@@ -27,6 +27,7 @@ class DiscordBot(commands.Bot):
         # Ưu tiên lấy từ system environment (systemd) trước
         application_id = int(os.environ.get('APPLICATION_ID') or os.getenv('APPLICATION_ID'))
         guild_id = int(os.environ.get('GUILD_ID') or os.getenv('GUILD_ID'))
+        stage = (os.environ.get('STAGE') or os.getenv('STAGE', 'production')).lower()
         
         # Initialize bot
         super().__init__(
@@ -36,6 +37,8 @@ class DiscordBot(commands.Bot):
         )
         
         self.guild_id = guild_id
+        self.stage = stage
+        self.is_dev = stage == 'dev'
         
         self._commands_added = False
         
