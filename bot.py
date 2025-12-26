@@ -71,8 +71,8 @@ class DiscordBot(commands.Bot):
     
     def is_command_ignored(self, command_name: str) -> bool:
         """Kiểm tra xem command có bị ignore không"""
-        # Loại bỏ prefix "dev" nếu có để check base name
-        base_name = command_name.replace("dev", "", 1) if command_name.startswith("dev") else command_name
+        # Loại bỏ prefix "dev_" nếu có để check base name
+        base_name = command_name.replace("dev_", "", 1) if command_name.startswith("dev_") else command_name
         return base_name in self.ignored_commands or command_name in self.ignored_commands
         
     def userdata(self):
